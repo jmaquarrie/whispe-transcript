@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Audio Transcriber</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --accent: #4f46e5;
+        --bg: #0f172a;
+        --card: #111827;
+        --text: #e2e8f0;
+        --muted: #94a3b8;
+      }
+
+      * {
+        box-sizing: border-box;
+        font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        position: relative;
+        overflow: hidden;
+        background: radial-gradient(circle at 10% 20%, rgba(79, 70, 229, 0.25),
+              transparent 35%),
+          radial-gradient(circle at 80% 0%, rgba(14, 165, 233, 0.22), transparent 38%),
+          linear-gradient(135deg, #0b1227, #131b3c 40%, #0f172a);
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: -20%;
+        background: conic-gradient(
+          from 120deg,
+          rgba(79, 70, 229, 0.2),
+          rgba(14, 165, 233, 0.05),
+          rgba(236, 72, 153, 0.12),
+          rgba(79, 70, 229, 0.2)
+        );
+        filter: blur(120px);
+        opacity: 0.55;
+        z-index: -1;
+        animation: swirl 18s linear infinite;
+      }
+
+      @keyframes swirl {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .card {
+        width: min(800px, 100%);
+        background: rgba(17, 24, 39, 0.9);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 18px;
+        padding: 32px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(10px);
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+        letter-spacing: -0.4px;
+      }
+
+      p.description {
+        margin: 0 0 24px;
+        color: var(--muted);
+      }
+
+      .dropzone {
+        border: 1.5px dashed rgba(255, 255, 255, 0.15);
+        border-radius: 16px;
+        padding: 40px;
+        text-align: center;
+        background: rgba(255, 255, 255, 0.02);
+        cursor: pointer;
+        transition: border-color 200ms ease, background 200ms ease;
+      }
+
+      .dropzone:hover,
+      .dropzone.dragover {
+        border-color: rgba(79, 70, 229, 0.7);
+        background: rgba(79, 70, 229, 0.05);
+      }
+
+      input[type="file"] {
+        display: none;
+      }
+
+      .actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 20px;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      button {
+        padding: 12px 18px;
+        background: var(--accent);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+        transition: transform 120ms ease, box-shadow 120ms ease, opacity 150ms ease;
+        box-shadow: 0 10px 30px rgba(79, 70, 229, 0.35);
+      }
+
+      button:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+
+      button:not(:disabled):hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 40px rgba(79, 70, 229, 0.4);
+      }
+
+      .status {
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.75);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 32px;
+        z-index: 10;
+      }
+
+      .modal.open {
+        display: flex;
+      }
+
+      .modal-content {
+        width: min(900px, 100%);
+        background: #0b1021;
+        border-radius: 16px;
+        padding: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+        display: grid;
+        gap: 16px;
+        max-height: 90vh;
+      }
+
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .modal-header h2 {
+        margin: 0;
+      }
+
+      .close-btn {
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--text);
+        box-shadow: none;
+        padding: 8px 12px;
+      }
+
+      .transcript-box {
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 12px;
+        padding: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        overflow: auto;
+        white-space: pre-wrap;
+        line-height: 1.6;
+        min-height: 200px;
+      }
+
+      .cost {
+        font-size: 14px;
+        color: var(--muted);
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .pill {
+        padding: 6px 10px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.06);
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Audio to Text</h1>
+      <p class="description">
+        Upload an audio file to transcribe it with <strong>gpt-4o-transcribe</strong>.
+      </p>
+      <label class="dropzone" id="dropzone">
+        <input type="file" id="file" accept="audio/*" />
+        <div id="drop-text">
+          <strong>Click to browse</strong> or drop an audio file here.
+        </div>
+        <div class="status" id="file-name">No file selected</div>
+      </label>
+
+      <div class="actions">
+        <label class="status" style="display: flex; gap: 8px; align-items: center">
+          <span>API Key:</span>
+          <input
+            type="password"
+            id="api-key"
+            placeholder="sk-..."
+            style="
+              background: rgba(255, 255, 255, 0.06);
+              border: 1px solid rgba(255, 255, 255, 0.08);
+              color: var(--text);
+              padding: 10px 12px;
+              border-radius: 10px;
+              width: min(320px, 60vw);
+            "
+          />
+        </label>
+        <span class="status" id="status-text">Ready to transcribe</span>
+        <button id="transcribe">Transcribe</button>
+      </div>
+    </div>
+
+    <div class="modal" id="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h2>Transcription</h2>
+            <div class="cost" id="cost"></div>
+          </div>
+          <button class="close-btn" id="close">Close</button>
+        </div>
+        <div class="transcript-box" id="transcript"></div>
+      </div>
+    </div>
+
+    <script>
+      const fileInput = document.getElementById("file");
+      const dropzone = document.getElementById("dropzone");
+      const fileName = document.getElementById("file-name");
+      const transcribeBtn = document.getElementById("transcribe");
+      const statusText = document.getElementById("status-text");
+      const apiKeyInput = document.getElementById("api-key");
+      const modal = document.getElementById("modal");
+      const closeBtn = document.getElementById("close");
+      const transcriptEl = document.getElementById("transcript");
+      const costEl = document.getElementById("cost");
+
+      const API_KEY_STORAGE_KEY = "transcriber:api-key";
+
+      apiKeyInput.value = localStorage.getItem(API_KEY_STORAGE_KEY) ?? "";
+
+      function setStatus(text) {
+        statusText.textContent = text;
+      }
+
+      function openModal() {
+        modal.classList.add("open");
+      }
+
+      function closeModal() {
+        modal.classList.remove("open");
+      }
+
+      function formatCost({ estimatedCost, ratePerMinute, durationSeconds }) {
+        if (estimatedCost) {
+          return `Estimated cost: $${estimatedCost} (rate $${ratePerMinute.toFixed(
+            4
+          )}/min, duration ${(durationSeconds / 60).toFixed(2)} min)`;
+        }
+        return "Cost estimate unavailable (missing duration from API).";
+      }
+
+      function handleFile(file) {
+        if (!file) return;
+        fileName.textContent = file.name;
+      }
+
+      function typeIntoElement(text) {
+        transcriptEl.textContent = "";
+        let index = 0;
+        const interval = setInterval(() => {
+          transcriptEl.textContent = text.slice(0, index);
+          index += 3;
+          if (index > text.length) {
+            transcriptEl.textContent = text;
+            clearInterval(interval);
+          }
+        }, 20);
+      }
+
+      dropzone.addEventListener("click", () => fileInput.click());
+
+      dropzone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropzone.classList.add("dragover");
+      });
+
+      dropzone.addEventListener("dragleave", () => {
+        dropzone.classList.remove("dragover");
+      });
+
+      dropzone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropzone.classList.remove("dragover");
+        const [file] = e.dataTransfer.files;
+        fileInput.files = e.dataTransfer.files;
+        handleFile(file);
+      });
+
+      fileInput.addEventListener("change", (e) => handleFile(e.target.files[0]));
+
+      apiKeyInput.addEventListener("change", (e) => {
+        const value = e.target.value.trim();
+        if (value) {
+          localStorage.setItem(API_KEY_STORAGE_KEY, value);
+        } else {
+          localStorage.removeItem(API_KEY_STORAGE_KEY);
+        }
+      });
+
+      transcribeBtn.addEventListener("click", async () => {
+        const file = fileInput.files[0];
+        if (!file) {
+          alert("Please select an audio file first.");
+          return;
+        }
+
+        const apiKey = apiKeyInput.value.trim();
+
+        transcribeBtn.disabled = true;
+        setStatus("Uploading and transcribing...");
+        transcriptEl.textContent = "Streaming transcript...";
+        costEl.textContent = "Waiting for cost details...";
+        openModal();
+
+        const body = new FormData();
+        body.append("audio", file);
+
+        try {
+          const response = await fetch("/api/transcribe", {
+            method: "POST",
+            body,
+            headers: apiKey ? { "x-openai-key": apiKey } : undefined,
+          });
+
+          const contentType = response.headers.get("content-type") || "";
+          const data = contentType.includes("application/json")
+            ? await response.json()
+            : { detail: await response.text() };
+          if (!response.ok) {
+            throw new Error(data?.detail ?? data?.error ?? "Transcription failed");
+          }
+
+          typeIntoElement(data.text || "(No text returned)");
+          costEl.textContent = formatCost(data);
+          setStatus("Transcription finished");
+        } catch (err) {
+          console.error(err);
+          alert(err.message);
+          setStatus("Something went wrong. Try again.");
+        } finally {
+          transcribeBtn.disabled = false;
+        }
+      });
+
+      closeBtn.addEventListener("click", closeModal);
+      modal.addEventListener("click", (e) => {
+        if (e.target === modal) closeModal();
+      });
+    </script>
+  </body>
+</html>
