@@ -1,10 +1,10 @@
 import express from "express";
 import multer from "multer";
-import OpenAI from "openai";
 import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { transcribeFile } from "./transcribe.js";
 
 dotenv.config();
 
@@ -43,28 +43,13 @@ app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
 
   try {
     const audioPath = req.file.path;
-
-    const openai = new OpenAI({ apiKey });
-
-    const response = await openai.audio.transcriptions.create({
-      file: fs.createReadStream(audioPath),
-      model: "gpt-4o-transcribe",
-      response_format: "verbose_json",
-    });
-
-    const durationSeconds = response?.usage?.total_duration;
-    const estimatedCost =
-      typeof durationSeconds === "number"
-        ? ((durationSeconds / 60) * ratePerMinute).toFixed(6)
-        : null;
-
-    res.json({
-      text: response?.text ?? "",
-      usage: response?.usage ?? {},
-      durationSeconds,
+    const result = await transcribeFile({
+      filePath: audioPath,
+      apiKey,
       ratePerMinute,
-      estimatedCost,
     });
+
+    res.json(result);
   } catch (error) {
     console.error("Transcription error", error);
     res.status(500).json({
