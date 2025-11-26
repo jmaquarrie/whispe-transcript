@@ -224,6 +224,22 @@
       </label>
 
       <div class="actions">
+        <label class="status" style="display: flex; gap: 8px; align-items: center">
+          <span>API Key:</span>
+          <input
+            type="password"
+            id="api-key"
+            placeholder="sk-..."
+            style="
+              background: rgba(255, 255, 255, 0.06);
+              border: 1px solid rgba(255, 255, 255, 0.08);
+              color: var(--text);
+              padding: 10px 12px;
+              border-radius: 10px;
+              width: min(320px, 60vw);
+            "
+          />
+        </label>
         <span class="status" id="status-text">Ready to transcribe</span>
         <button id="transcribe">Transcribe</button>
       </div>
@@ -248,10 +264,15 @@
       const fileName = document.getElementById("file-name");
       const transcribeBtn = document.getElementById("transcribe");
       const statusText = document.getElementById("status-text");
+      const apiKeyInput = document.getElementById("api-key");
       const modal = document.getElementById("modal");
       const closeBtn = document.getElementById("close");
       const transcriptEl = document.getElementById("transcript");
       const costEl = document.getElementById("cost");
+
+      const API_KEY_STORAGE_KEY = "transcriber:api-key";
+
+      apiKeyInput.value = localStorage.getItem(API_KEY_STORAGE_KEY) ?? "";
 
       function setStatus(text) {
         statusText.textContent = text;
@@ -279,6 +300,19 @@
         fileName.textContent = file.name;
       }
 
+      function typeIntoElement(text) {
+        transcriptEl.textContent = "";
+        let index = 0;
+        const interval = setInterval(() => {
+          transcriptEl.textContent = text.slice(0, index);
+          index += 3;
+          if (index > text.length) {
+            transcriptEl.textContent = text;
+            clearInterval(interval);
+          }
+        }, 20);
+      }
+
       dropzone.addEventListener("click", () => fileInput.click());
 
       dropzone.addEventListener("dragover", (e) => {
@@ -300,6 +334,15 @@
 
       fileInput.addEventListener("change", (e) => handleFile(e.target.files[0]));
 
+      apiKeyInput.addEventListener("change", (e) => {
+        const value = e.target.value.trim();
+        if (value) {
+          localStorage.setItem(API_KEY_STORAGE_KEY, value);
+        } else {
+          localStorage.removeItem(API_KEY_STORAGE_KEY);
+        }
+      });
+
       transcribeBtn.addEventListener("click", async () => {
         const file = fileInput.files[0];
         if (!file) {
@@ -307,8 +350,13 @@
           return;
         }
 
+        const apiKey = apiKeyInput.value.trim();
+
         transcribeBtn.disabled = true;
         setStatus("Uploading and transcribing...");
+        transcriptEl.textContent = "Streaming transcript...";
+        costEl.textContent = "Waiting for cost details...";
+        openModal();
 
         const body = new FormData();
         body.append("audio", file);
@@ -317,16 +365,19 @@
           const response = await fetch("/api/transcribe", {
             method: "POST",
             body,
+            headers: apiKey ? { "x-openai-key": apiKey } : undefined,
           });
 
-          const data = await response.json();
+          const contentType = response.headers.get("content-type") || "";
+          const data = contentType.includes("application/json")
+            ? await response.json()
+            : { detail: await response.text() };
           if (!response.ok) {
             throw new Error(data?.detail ?? data?.error ?? "Transcription failed");
           }
 
-          transcriptEl.textContent = data.text || "(No text returned)";
+          typeIntoElement(data.text || "(No text returned)");
           costEl.textContent = formatCost(data);
-          openModal();
           setStatus("Transcription finished");
         } catch (err) {
           console.error(err);

@@ -29,5 +29,6 @@ A lightweight web app to upload an audio file, send it to `gpt-4o-transcribe`, a
 ## Usage
 
 1. Open the app and click the dropzone (or drag and drop) to select an audio file.
-2. Click **Transcribe** to upload the file and trigger the `gpt-4o-transcribe` request.
-3. The transcript opens in a fullscreen modal with an estimated transcription cost shown beneath the title. The estimate is computed from the API-reported audio duration and the rate per minute value.
+2. Optional: paste your own OpenAI key into the **API Key** field. It is stored locally in your browser and sent to the server per request (you can also rely on the server-side `OPENAI_API_KEY`).
+3. Click **Transcribe** to upload the file and trigger the `gpt-4o-transcribe` request.
+4. The transcript opens in a fullscreen modal and is streamed into view in real time with an estimated transcription cost beneath the title. The estimate is computed from the API-reported audio duration and the rate per minute value.

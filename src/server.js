@@ -20,8 +20,6 @@ if (!fs.existsSync(uploadsDir)) {
 }
 
 const upload = multer({ dest: uploadsDir });
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 const ratePerMinute = parseFloat(
   process.env.TRANSCRIBE_RATE_PER_MINUTE ?? "0.0002"
 );
@@ -29,10 +27,14 @@ const ratePerMinute = parseFloat(
 app.use(express.static(path.join(__dirname, "..", "public")));
 
 app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
-  if (!process.env.OPENAI_API_KEY) {
-    return res
-      .status(500)
-      .json({ error: "Missing OPENAI_API_KEY in environment variables" });
+  const suppliedKey = req.get("x-openai-key");
+  const apiKey = suppliedKey?.trim() || process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
+    return res.status(400).json({
+      error:
+        "Provide an API key via the x-openai-key header or set OPENAI_API_KEY.",
+    });
   }
 
   if (!req.file) {
@@ -41,6 +43,8 @@ app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
 
   try {
     const audioPath = req.file.path;
+
+    const openai = new OpenAI({ apiKey });
 
     const response = await openai.audio.transcriptions.create({
       file: fs.createReadStream(audioPath),
