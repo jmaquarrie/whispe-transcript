@@ -5,6 +5,7 @@ import { transcribeFile } from "../src/transcribe.js";
 export const config = {
   api: {
     bodyParser: false,
+    sizeLimit: "50mb",
   },
 };
 
@@ -31,6 +32,7 @@ export default async function handler(req, res) {
     keepExtensions: true,
     multiples: false,
     uploadDir: "/tmp",
+    maxFileSize: 50 * 1024 * 1024,
   });
 
   form.parse(req, async (err, fields, files) => {

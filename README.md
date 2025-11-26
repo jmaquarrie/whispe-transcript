@@ -34,6 +34,8 @@ A lightweight web app to upload an audio file, send it to `gpt-4o-transcribe`, a
   Vercel project environment variables.
 - The client will also send an API key from the **API Key** field if one is
   entered, which allows per-request keys without redeploying.
+- The serverless upload parser accepts files up to **50 MB**; larger uploads
+  will be rejected before the transcription begins.
 
 ## Usage
 
